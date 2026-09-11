@@ -1,0 +1,6 @@
+{
+  "name": "AutoReels AI - Instagram Video Automation SaaS",
+  "description": "SaaS completo de automação de vídeos e criação de conteúdo para Instagram com análise de perfil, calendário editorial inteligente, roteirizador por regras e estúdio de edição A/B com corte de silêncio.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
