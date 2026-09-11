@@ -21,6 +21,7 @@ import {
   FileVideo,
   Layers,
   ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
 
 interface VideoStudioProps {
@@ -42,18 +43,16 @@ export const VideoStudio: React.FC<VideoStudioProps> = ({
 }) => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [videoTitle, setVideoTitle] = useState(currentJob.title);
+  const [videoTitle, setVideoTitle] = useState(currentJob.title || "Reels_Gravacao_Bruta.mp4");
   const [silenceThreshold, setSilenceThreshold] = useState(currentJob.silenceThresholdDb || -30.0);
   const [activeCaptionTab, setActiveCaptionTab] = useState<"A" | "B">("A");
   const [copiedCaptionA, setCopiedCaptionA] = useState(false);
   const [copiedCaptionB, setCopiedCaptionB] = useState(false);
 
-  // Video Players references & state
-  const videoRefA = useRef<HTMLVideoElement | null>(null);
-  const videoRefB = useRef<HTMLVideoElement | null>(null);
-  const [isPlayingA, setIsPlayingA] = useState(false);
-  const [isPlayingB, setIsPlayingB] = useState(false);
-  const [isSyncPlaying, setIsSyncPlaying] = useState(false);
+  // Video Player references
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [activeVersion, setActiveVersion] = useState<"A" | "B">("A");
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -89,147 +88,157 @@ export const VideoStudio: React.FC<VideoStudioProps> = ({
     onProcessVideo(videoTitle, 52.4, silenceThreshold, fileName);
   };
 
-  const toggleSyncPlayback = () => {
-    if (!videoRefA.current || !videoRefB.current) return;
+  const currentCutVideoUrl =
+    activeVersion === "A"
+      ? currentJob.versionA.videoUrl
+      : currentJob.versionB.videoUrl;
 
-    if (isSyncPlaying) {
-      videoRefA.current.pause();
-      videoRefB.current.pause();
-      setIsPlayingA(false);
-      setIsPlayingB(false);
-      setIsSyncPlaying(false);
-    } else {
-      videoRefA.current.currentTime = 0;
-      videoRefB.current.currentTime = 0;
-      videoRefA.current.play();
-      videoRefB.current.play();
-      setIsPlayingA(true);
-      setIsPlayingB(true);
-      setIsSyncPlaying(true);
+  const currentDuration =
+    activeVersion === "A"
+      ? currentJob.versionA.durationSeconds
+      : currentJob.versionB.durationSeconds;
+
+  const currentSavings =
+    activeVersion === "A"
+      ? currentJob.versionA.cutSavingsPercent
+      : currentJob.versionB.cutSavingsPercent;
+
+  const handleTogglePlay = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        videoRef.current.play();
+        setIsPlaying(true);
+      }
     }
   };
 
-  const copyToClipboard = (text: string, isA: boolean) => {
+  const handleCopyCaption = (text: string, tab: "A" | "B") => {
     navigator.clipboard.writeText(text);
-    if (isA) {
+    if (tab === "A") {
       setCopiedCaptionA(true);
-      setTimeout(() => setCopiedCaptionA(false), 2500);
+      setTimeout(() => setCopiedCaptionA(false), 2000);
     } else {
       setCopiedCaptionB(true);
-      setTimeout(() => setCopiedCaptionB(false), 2500);
+      setTimeout(() => setCopiedCaptionB(false), 2000);
     }
   };
 
   return (
     <div className="space-y-8 animate-fadeIn">
-      {/* Studio Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
+      {/* Top Banner / Title */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#D9DDE0] pb-6">
         <div>
-          <div className="flex items-center space-x-2 text-rose-400 text-xs font-semibold uppercase tracking-wider mb-1">
-            <Scissors className="h-4 w-4" />
-            <span>Processamento de Áudio & Geração de Teste A/B</span>
+          <div className="flex items-center space-x-2 text-[#607D8B] text-xs font-semibold uppercase tracking-wider mb-1">
+            <Scissors className="h-4 w-4 text-[#C9A96E]" />
+            <span>Motor de Edição Automática & Corte Cirúrgico</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-            Estúdio de Edição de Vídeo
+          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#252A2E]">
+            Edite seu vídeo
           </h1>
-          <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-            Corte automático de silêncios e hesitações (limiar de {silenceThreshold}dB) e geração
-            instantânea da Versão A (Hiperdinâmica) e Versão B (Cadência Natural) para o Instagram.
+          <p className="text-sm text-[#607D8B] mt-1 max-w-2xl">
+            Faça upload do seu vídeo bruto (.mp4 ou .mov). O microserviço em Python elimina automaticamente hesitações e silêncios abaixo de <strong>-30dB</strong> com margem de 0.1s.
           </p>
         </div>
 
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs">
-            <span className="text-slate-400 font-medium">Limiar Silêncio:</span>
-            <span className="text-rose-400 font-bold font-mono">{silenceThreshold} dB</span>
-          </div>
-
-          <button
-            id="btn-trigger-captions"
-            onClick={() =>
-              onGenerateCaptions(
-                `Vídeo sobre como automatizar o corte de hesitações e silêncios abaixo de -30dB em vídeos curtos para Instagram Reels, gerando versão agressiva de 32s e versão moderada de 42s.`
-              )
-            }
-            disabled={isGeneratingCaptions}
-            className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-600 text-slate-200 text-xs font-medium transition-all"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-rose-400" />
-            <span>{isGeneratingCaptions ? "Gerando Legendas..." : "Recalcular Legendas A/B"}</span>
-          </button>
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#607D8B]/10 text-[#607D8B] text-xs font-semibold border border-[#607D8B]/20">
+            <Sparkles className="w-3.5 h-3.5 text-[#C9A96E]" />
+            auto-editor + FFmpeg
+          </span>
         </div>
       </div>
 
-      {/* Upload Zone & Pre-flight Settings */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Upload Card (8 cols) */}
-        <div className="lg:col-span-8 p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-white flex items-center space-x-2">
-              <Upload className="h-4 w-4 text-rose-400" />
-              <span>Upload do Vídeo Bruto (.mp4 ou .mov)</span>
-            </h3>
-            <span className="text-[11px] text-slate-500">Max: 500MB | 1080x1920 (9:16)</span>
-          </div>
+      {/* Grid: Upload & Configurações de Corte vs Player do Vídeo */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Coluna Esquerda: Upload & Parâmetros (5 cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Card: Upload do Vídeo Bruto */}
+          <div className="bg-white rounded-2xl border border-[#D9DDE0] p-6 shadow-xs space-y-5">
+            <h2 className="text-base font-serif font-bold text-[#252A2E] flex items-center space-x-2">
+              <Upload className="h-4 w-4 text-[#607D8B]" />
+              <span>1. Envie o Vídeo Bruto</span>
+            </h2>
 
-          <div
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
-              dragActive
-                ? "border-rose-500 bg-rose-500/10"
-                : "border-slate-800 hover:border-slate-700 bg-slate-950/60"
-            }`}
-          >
-            <input
-              type="file"
-              id="video-upload-input"
-              accept="video/mp4,video/quicktime,video/webm"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <label
-              htmlFor="video-upload-input"
-              className="cursor-pointer flex flex-col items-center space-y-2"
+            {/* Drag & Drop Area */}
+            <div
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                dragActive
+                  ? "border-[#C9A96E] bg-[#C9A96E]/5"
+                  : selectedFile
+                  ? "border-[#607D8B] bg-[#F8F6F1]"
+                  : "border-[#D9DDE0] hover:border-[#607D8B] bg-[#F8F6F1]/50"
+              }`}
             >
-              <div className="h-12 w-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
-                <FileVideo className="h-6 w-6" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-slate-200">
-                  {selectedFile ? selectedFile.name : "Clique para selecionar ou arraste o arquivo aqui"}
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  {selectedFile
-                    ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB pronto para processar`
-                    : "Recomendado: gravação de 30s a 90s gravada direto do celular"}
-                </p>
-              </div>
-            </label>
-          </div>
+              <input
+                id="file-upload"
+                type="file"
+                accept="video/mp4,video/quicktime,video/mov"
+                onChange={handleFileChange}
+                className="hidden"
+              />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              {selectedFile ? (
+                <div className="space-y-2">
+                  <div className="w-12 h-12 mx-auto rounded-xl bg-[#607D8B]/10 flex items-center justify-center text-[#607D8B]">
+                    <FileVideo className="h-6 w-6 text-[#607D8B]" />
+                  </div>
+                  <h3 className="font-semibold text-xs text-[#252A2E] truncate max-w-xs mx-auto">
+                    {selectedFile.name}
+                  </h3>
+                  <p className="text-[11px] text-[#607D8B]">
+                    {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB • Pronto para corte
+                  </p>
+                  <label
+                    htmlFor="file-upload"
+                    className="inline-block text-[11px] font-semibold text-[#C9A96E] hover:underline cursor-pointer pt-1"
+                  >
+                    Trocar arquivo
+                  </label>
+                </div>
+              ) : (
+                <label htmlFor="file-upload" className="cursor-pointer block space-y-2">
+                  <div className="w-12 h-12 mx-auto rounded-xl bg-[#607D8B]/10 flex items-center justify-center text-[#607D8B]">
+                    <Upload className="h-6 w-6 text-[#607D8B]" />
+                  </div>
+                  <div className="text-xs text-[#252A2E] font-medium">
+                    <span className="text-[#C9A96E] font-bold">Clique para selecionar</span> ou arraste o arquivo aqui
+                  </div>
+                  <p className="text-[11px] text-[#607D8B]">
+                    Formatos suportados: <strong>.mp4</strong> ou <strong>.mov</strong> (Reels/TikTok 9:16)
+                  </p>
+                </label>
+              )}
+            </div>
+
+            {/* Título do Projeto */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Título do Vídeo / Conteúdo
+              <label className="block text-xs font-semibold text-[#252A2E] mb-1.5">
+                Nome do Projeto / Reels
               </label>
               <input
                 type="text"
                 value={videoTitle}
                 onChange={(e) => setVideoTitle(e.target.value)}
-                placeholder="Ex: Como cortar silêncios no Reels"
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-500"
+                placeholder="Ex: Como reter mais nos primeiros 3s"
+                className="w-full px-3.5 py-2.5 bg-[#F8F6F1]/50 border border-[#D9DDE0] rounded-xl text-xs text-[#252A2E] focus:outline-none focus:border-[#607D8B]"
               />
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-medium text-slate-300">
-                  Sensibilidade de Corte de Silêncio
-                </label>
-                <span className="text-xs font-mono font-bold text-rose-400">{silenceThreshold} dB</span>
+            {/* Parâmetros de Áudio */}
+            <div className="p-4 rounded-xl bg-[#F8F6F1] border border-[#D9DDE0] space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-[#252A2E] flex items-center gap-1.5">
+                  <VolumeX className="w-3.5 h-3.5 text-[#607D8B]" />
+                  Limiar de Silêncio:
+                </span>
+                <span className="font-bold text-[#C9A96E]">{silenceThreshold} dB</span>
               </div>
               <input
                 type="range"
@@ -238,446 +247,259 @@ export const VideoStudio: React.FC<VideoStudioProps> = ({
                 step="1"
                 value={silenceThreshold}
                 onChange={(e) => setSilenceThreshold(Number(e.target.value))}
-                className="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                className="w-full accent-[#607D8B] cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
-                <span>-45 dB (Muito silencioso)</span>
-                <span>-30 dB (Padrão ouro)</span>
-                <span>-20 dB (Agressivo)</span>
+              <div className="flex justify-between text-[10px] text-[#607D8B]">
+                <span>-45 dB (Mais sensível)</span>
+                <span className="font-bold text-[#252A2E]">-30 dB (Recomendado)</span>
+                <span>-20 dB (Corte agressivo)</span>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center justify-end pt-2">
+            {/* Botão de Processamento */}
             <button
-              id="start-process-btn"
+              id="btn-process-video"
               onClick={handleStartProcessing}
               disabled={isProcessing}
-              className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs font-semibold shadow-md shadow-rose-600/20 transition-all disabled:opacity-50"
+              className="w-full py-3.5 rounded-xl bg-[#252A2E] hover:bg-[#343b40] text-white font-semibold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isProcessing ? (
                 <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>Processando FFmpeg & Auto-Editor...</span>
+                  <RefreshCw className="h-4 w-4 animate-spin text-[#C9A96E]" />
+                  <span>Processando Corte em -30dB...</span>
                 </>
               ) : (
                 <>
-                  <Scissors className="h-4 w-4" />
-                  <span>Iniciar Corte Automático & Teste A/B</span>
+                  <Scissors className="h-4 w-4 text-[#C9A96E]" />
+                  <span>Cortar Silêncios & Hesitações</span>
                 </>
               )}
             </button>
           </div>
-        </div>
 
-        {/* Processing Status & Waveform Insights (4 cols) */}
-        <div className="lg:col-span-4 p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
-          <h3 className="text-sm font-semibold text-white flex items-center space-x-2">
-            <Sliders className="h-4 w-4 text-amber-400" />
-            <span>Métricas de Eliminação de Silêncio</span>
-          </h3>
+          {/* Resumo da Detecção & Economia de Tempo */}
+          <div className="bg-white rounded-2xl border border-[#D9DDE0] p-6 shadow-xs space-y-4">
+            <h3 className="font-serif font-bold text-sm text-[#252A2E] flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[#607D8B]" />
+              <span>Métricas de Retenção Alcançadas</span>
+            </h3>
 
-          <div className="space-y-3">
-            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
-              <span className="text-xs text-slate-400">Duração Original Bruta</span>
-              <span className="text-sm font-bold font-mono text-slate-200">
-                {currentJob.originalDuration.toFixed(1)}s
-              </span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-950 border border-rose-500/20 flex items-center justify-between">
-              <div>
-                <span className="text-xs text-slate-300 block">Tempo Total de Silêncio Cortado</span>
-                <span className="text-[10px] text-slate-500">Trechos abaixo de {currentJob.silenceThresholdDb}dB</span>
-              </div>
-              <span className="text-sm font-bold font-mono text-rose-400">
-                -{currentJob.totalSilenceDuration.toFixed(1)}s
-              </span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-950 border border-emerald-500/20 flex items-center justify-between">
-              <span className="text-xs text-slate-300">Trechos de Silêncio Detectados</span>
-              <span className="text-sm font-bold font-mono text-emerald-400">
-                {currentJob.silenceSegments.length} cortes
-              </span>
-            </div>
-          </div>
-
-          {/* Mini Waveform Visualizer */}
-          <div className="space-y-1.5 pt-2">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-400">Forma de Onda (Linha do Tempo):</span>
-              <span className="text-rose-400 font-semibold">Vermelho = Silêncio Eliminado</span>
-            </div>
-            <div className="h-10 w-full bg-slate-950 rounded-xl border border-slate-800 flex items-center px-2 space-x-1 overflow-hidden">
-              {Array.from({ length: 36 }).map((_, idx) => {
-                const isSilence = [0, 1, 6, 7, 13, 14, 20, 21, 28, 29, 34, 35].includes(idx);
-                const height = isSilence ? "h-2 bg-rose-500/70" : "h-7 bg-emerald-400/80";
-                return (
-                  <div
-                    key={idx}
-                    className={`flex-1 rounded-full transition-all ${height}`}
-                    title={isSilence ? "Trecho de silêncio < -30dB cortado" : "Fala ativa detectada"}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* SIDE-BY-SIDE VIDEO PLAYER (VERSION A vs VERSION B) */}
-      <div className="p-6 rounded-3xl bg-slate-900/80 border border-slate-800 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                Vídeos Prontos
-              </span>
-              <h2 className="text-lg font-bold text-white">
-                Player Lado a Lado: Teste A/B Instagram
-              </h2>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Compare visualmente a diferença de retenção entre o corte agressivo (Reels dinâmico)
-              e o corte moderado (natural).
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <button
-              id="btn-sync-play"
-              onClick={toggleSyncPlayback}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                isSyncPlaying
-                  ? "bg-rose-500 text-white shadow-md shadow-rose-500/30"
-                  : "bg-slate-800 hover:bg-slate-700 text-slate-200"
-              }`}
-            >
-              {isSyncPlaying ? (
-                <>
-                  <Pause className="h-4 w-4" />
-                  <span>Pausar Ambos</span>
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 text-rose-400" />
-                  <span>Reproduzir Sincronizado</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Players Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* VERSION A: AGGRESSIVE */}
-          <div className="p-5 rounded-2xl bg-slate-950 border border-rose-500/40 space-y-4 shadow-lg shadow-rose-950/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="font-bold text-sm text-white">Versão A</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                    Corte Agressivo
-                  </span>
-                </div>
-                <span className="text-[11px] text-slate-400">Margem: 0.05s antes/depois da fala</span>
-              </div>
-              <div className="text-right">
-                <span className="text-base font-bold font-mono text-rose-400">
-                  {currentJob.versionA.durationSeconds}s
+            <div className="grid grid-cols-2 gap-3 text-center">
+              <div className="p-3 rounded-xl bg-[#F8F6F1] border border-[#D9DDE0]">
+                <span className="text-[10px] text-[#607D8B] uppercase font-bold block mb-0.5">
+                  Duração Original
                 </span>
-                <span className="block text-[10px] text-emerald-400 font-semibold">
-                  -{currentJob.versionA.cutSavingsPercent}% mais curto
+                <span className="text-lg font-serif font-bold text-[#252A2E]">
+                  {currentJob.originalDuration}s
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-[#F8F6F1] border border-[#C9A96E]/50">
+                <span className="text-[10px] text-[#C9A96E] uppercase font-bold block mb-0.5">
+                  Tempo Final Cortado
+                </span>
+                <span className="text-lg font-serif font-bold text-[#252A2E]">
+                  {currentDuration}s
                 </span>
               </div>
             </div>
 
-            {/* Video A Canvas/Container */}
-            <div className="relative aspect-[9/16] max-h-[420px] mx-auto bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center group">
-              <video
-                ref={videoRefA}
-                src={currentJob.versionA.videoUrl}
-                playsInline
-                loop
-                className="w-full h-full object-cover"
-                onPlay={() => setIsPlayingA(true)}
-                onPause={() => setIsPlayingA(false)}
-              />
-
-              {/* Overlay Play Button */}
-              <button
-                onClick={() => {
-                  if (videoRefA.current) {
-                    if (isPlayingA) videoRefA.current.pause();
-                    else videoRefA.current.play();
-                  }
-                }}
-                className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <div className="h-12 w-12 rounded-full bg-rose-500/90 text-white flex items-center justify-center shadow-lg">
-                  {isPlayingA ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
-                </div>
-              </button>
-
-              {/* Dynamic Retention Badge */}
-              <div className="absolute top-3 left-3 bg-slate-950/90 border border-rose-500/40 px-2.5 py-1 rounded-lg text-[10px] font-bold text-rose-300 backdrop-blur-sm">
-                ⚡ Ritmo Rápido ({currentJob.versionA.cutsCount} cortes)
+            {/* Forma de Onda Simbolizando o Corte de Silêncio */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-[#607D8B]">Visualização da Faixa de Áudio:</span>
+                <span className="text-[#C9A96E] font-semibold">Cinza = Silêncios Removidos</span>
               </div>
-            </div>
-
-            {/* Version A Specs & Download */}
-            <div className="space-y-3 pt-1 text-xs">
-              <p className="text-slate-300">
-                <strong>Melhor para:</strong> {currentJob.versionA.bestFor}
-              </p>
-              <a
-                href={currentJob.versionA.videoUrl}
-                download="versao_a_corte_agressivo.mp4"
-                target="_blank"
-                rel="noreferrer"
-                className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-100 font-semibold flex items-center justify-center space-x-2 transition-all shadow-sm"
-              >
-                <Download className="h-4 w-4 text-rose-400" />
-                <span>Baixar Versão A (.mp4)</span>
-              </a>
-            </div>
-          </div>
-
-          {/* VERSION B: MODERATE */}
-          <div className="p-5 rounded-2xl bg-slate-950 border border-blue-500/40 space-y-4 shadow-lg shadow-blue-950/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="font-bold text-sm text-white">Versão B</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                    Corte Moderado
-                  </span>
-                </div>
-                <span className="text-[11px] text-slate-400">Margem: 0.25s (respiros naturais)</span>
-              </div>
-              <div className="text-right">
-                <span className="text-base font-bold font-mono text-blue-400">
-                  {currentJob.versionB.durationSeconds}s
-                </span>
-                <span className="block text-[10px] text-emerald-400 font-semibold">
-                  -{currentJob.versionB.cutSavingsPercent}% mais curto
-                </span>
-              </div>
-            </div>
-
-            {/* Video B Canvas/Container */}
-            <div className="relative aspect-[9/16] max-h-[420px] mx-auto bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center group">
-              <video
-                ref={videoRefB}
-                src={currentJob.versionB.videoUrl}
-                playsInline
-                loop
-                className="w-full h-full object-cover"
-                onPlay={() => setIsPlayingB(true)}
-                onPause={() => setIsPlayingB(false)}
-              />
-
-              {/* Overlay Play Button */}
-              <button
-                onClick={() => {
-                  if (videoRefB.current) {
-                    if (isPlayingB) videoRefB.current.pause();
-                    else videoRefB.current.play();
-                  }
-                }}
-                className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <div className="h-12 w-12 rounded-full bg-blue-500/90 text-white flex items-center justify-center shadow-lg">
-                  {isPlayingB ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
-                </div>
-              </button>
-
-              {/* Human Cadence Badge */}
-              <div className="absolute top-3 left-3 bg-slate-950/90 border border-blue-500/40 px-2.5 py-1 rounded-lg text-[10px] font-bold text-blue-300 backdrop-blur-sm">
-                🎙️ Ritmo Conversacional
-              </div>
-            </div>
-
-            {/* Version B Specs & Download */}
-            <div className="space-y-3 pt-1 text-xs">
-              <p className="text-slate-300">
-                <strong>Melhor para:</strong> {currentJob.versionB.bestFor}
-              </p>
-              <a
-                href={currentJob.versionB.videoUrl}
-                download="versao_b_corte_moderado.mp4"
-                target="_blank"
-                rel="noreferrer"
-                className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-100 font-semibold flex items-center justify-center space-x-2 transition-all shadow-sm"
-              >
-                <Download className="h-4 w-4 text-blue-400" />
-                <span>Baixar Versão B (.mp4)</span>
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* BLOCO: SUGESTÃO DE MELHOR HORÁRIO & LEGENDA A/B PARA O INSTAGRAM */}
-      {currentJob.captions && (
-        <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-            <div>
-              <span className="text-xs font-semibold text-rose-400 uppercase tracking-wider">
-                Aba "Testar" do Instagram
-              </span>
-              <h3 className="text-lg font-bold text-white">
-                Variações de Legenda & Horário Ideal de Postagem
-              </h3>
-            </div>
-
-            <div className="flex items-center space-x-2 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl">
-              <Clock className="h-4 w-4 text-amber-400" />
-              <div className="text-xs">
-                <span className="text-slate-400">Melhor Horário: </span>
-                <strong className="text-amber-300">
-                  {currentJob.captions.recommendedPostingWindow.bestHour}
-                </strong>
-                <span className="text-slate-500 ml-1">
-                  (Secundário: {currentJob.captions.recommendedPostingWindow.secondaryHour})
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Reasoning pill */}
-          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 flex items-start space-x-2">
-            <Sparkles className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
-            <p>
-              <strong>Por que esse horário?</strong>{" "}
-              {currentJob.captions.recommendedPostingWindow.reasoning}
-            </p>
-          </div>
-
-          {/* A/B Tabs */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2 border-b border-slate-800 pb-2">
-              <button
-                id="tab-caption-a"
-                onClick={() => setActiveCaptionTab("A")}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeCaptionTab === "A"
-                    ? "bg-rose-500 text-white"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Opção A: {currentJob.captions.versionA.angle}
-              </button>
-              <button
-                id="tab-caption-b"
-                onClick={() => setActiveCaptionTab("B")}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeCaptionTab === "B"
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Opção B: {currentJob.captions.versionB.angle}
-              </button>
-            </div>
-
-            {/* Active Caption Content */}
-            {activeCaptionTab === "A" ? (
-              <div className="space-y-3 p-5 rounded-2xl bg-slate-950 border border-slate-800 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-rose-400">
-                    Gancho: {currentJob.captions.versionA.hookConcept}
-                  </span>
-                  <button
-                    onClick={() =>
-                      copyToClipboard(currentJob.captions!.versionA.captionText, true)
-                    }
-                    className="flex items-center space-x-1 px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 transition-colors"
-                  >
-                    {copiedCaptionA ? (
-                      <>
-                        <Check className="h-3.5 w-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">Copiada!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5" />
-                        <span>Copiar Legenda A</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="whitespace-pre-line text-slate-200 bg-slate-900/90 p-4 rounded-xl border border-slate-800 font-sans leading-relaxed">
-                  {currentJob.captions.versionA.captionText}
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {currentJob.captions.versionA.hashtags.map((tag, idx) => (
-                    <span
+              <div className="h-10 w-full bg-[#252A2E] rounded-xl border border-[#D9DDE0] flex items-center px-2 space-x-1 overflow-hidden">
+                {Array.from({ length: 32 }).map((_, idx) => {
+                  const isSilence = [0, 1, 6, 7, 13, 14, 20, 21, 27, 28].includes(idx);
+                  const height = isSilence ? "h-2 bg-[#D9DDE0]/30" : "h-7 bg-[#C9A96E]";
+                  return (
+                    <div
                       key={idx}
-                      className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[11px] text-slate-400"
-                    >
-                      {tag}
+                      className={`flex-1 rounded-full transition-all ${height}`}
+                      title={isSilence ? "Trecho < -30dB cortado" : "Fala fluida mantida"}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Coluna Direita: Player com o Vídeo Cortado & Download (7 cols) */}
+        <div className="lg:col-span-7 space-y-6">
+          <div className="bg-white rounded-2xl border border-[#D9DDE0] p-6 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#D9DDE0] pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#607D8B]/10 text-[#607D8B] border border-[#607D8B]/20">
+                    Vídeo Pronto
+                  </span>
+                  <h2 className="text-base font-serif font-bold text-[#252A2E]">
+                    Player com Vídeo Cortado
+                  </h2>
+                </div>
+                <p className="text-xs text-[#607D8B] mt-0.5">
+                  Assista ao resultado final pronto para publicação no Instagram e TikTok.
+                </p>
+              </div>
+
+              {/* Seletor de Versões A/B */}
+              <div className="flex items-center bg-[#F8F6F1] p-1 rounded-xl border border-[#D9DDE0] shrink-0">
+                <button
+                  onClick={() => setActiveVersion("A")}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    activeVersion === "A"
+                      ? "bg-[#252A2E] text-white shadow-xs"
+                      : "text-[#607D8B] hover:text-[#252A2E]"
+                  }`}
+                >
+                  Versão A (Dinâmica)
+                </button>
+                <button
+                  onClick={() => setActiveVersion("B")}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    activeVersion === "B"
+                      ? "bg-[#252A2E] text-white shadow-xs"
+                      : "text-[#607D8B] hover:text-[#252A2E]"
+                  }`}
+                >
+                  Versão B (Moderada)
+                </button>
+              </div>
+            </div>
+
+            {/* Container do Player 9:16 */}
+            <div className="relative aspect-[9/16] max-h-[460px] mx-auto bg-[#252A2E] rounded-2xl overflow-hidden border border-[#D9DDE0] flex items-center justify-center group shadow-md">
+              <video
+                ref={videoRef}
+                src={currentCutVideoUrl}
+                playsInline
+                loop
+                className="w-full h-full object-cover"
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+              />
+
+              {/* Botão de Play / Pause Central */}
+              <button
+                onClick={handleTogglePlay}
+                className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <div className="h-14 w-14 rounded-full bg-[#C9A96E] text-white flex items-center justify-center shadow-lg transition-transform hover:scale-105">
+                  {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 ml-0.5" />}
+                </div>
+              </button>
+
+              {/* Badge de Economia de Tempo */}
+              <div className="absolute top-3 left-3 bg-[#252A2E]/90 border border-[#C9A96E]/50 px-2.5 py-1 rounded-lg text-[10px] font-bold text-[#C9A96E] backdrop-blur-sm">
+                -{currentSavings}% de silêncio eliminado
+              </div>
+            </div>
+
+            {/* BOTÃO DESTACADO PARA DOWNLOAD DO ARQUIVO MP4 EDITADO */}
+            <div className="pt-2">
+              <a
+                id="download-edited-video-btn"
+                href={currentCutVideoUrl}
+                download={`autoreels_editado_${activeVersion.toLowerCase()}.mp4`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-4 rounded-xl bg-[#C9A96E] hover:bg-[#b8955b] text-white font-bold text-sm shadow-lg shadow-[#C9A96E]/30 flex items-center justify-center gap-2 transition-all cursor-pointer hover:-translate-y-0.5"
+              >
+                <Download className="w-5 h-5 text-white" />
+                <span>Baixar Arquivo MP4 Editado ({currentDuration}s)</span>
+              </a>
+              <p className="text-[11px] text-[#607D8B] text-center mt-2">
+                Arquivo exportado em formato vertical 1080x1920 (9:16) pronto para publicação direta.
+              </p>
+            </div>
+          </div>
+
+          {/* Gerador de Legenda e Hashtags para o Vídeo */}
+          <div className="bg-white rounded-2xl border border-[#D9DDE0] p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-[#D9DDE0] pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#C9A96E]" />
+                <h3 className="font-serif font-bold text-sm text-[#252A2E]">
+                  Legenda Estratégica & Hashtags para o Vídeo
+                </h3>
+              </div>
+              <button
+                onClick={() =>
+                  onGenerateCaptions(
+                    `Vídeo sobre ${videoTitle}. Roteiro focado em reter o público nos primeiros 3 segundos eliminando hesitações.`
+                  )
+                }
+                disabled={isGeneratingCaptions}
+                className="text-xs font-semibold text-[#607D8B] hover:text-[#252A2E] flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingCaptions ? "animate-spin" : ""}`} />
+                <span>Gerar Novas Legendas</span>
+              </button>
+            </div>
+
+            {currentJob.captions ? (
+              <div className="space-y-3">
+                <div className="p-4 rounded-xl bg-[#F8F6F1] border border-[#D9DDE0] relative">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-[#607D8B] uppercase">
+                      Legenda Sugerida (Gancho + Conteúdo + CTA):
                     </span>
-                  ))}
+                    <button
+                      onClick={() =>
+                        handleCopyCaption(currentJob.captions?.versionA.captionText || "", "A")
+                      }
+                      className="text-xs text-[#607D8B] hover:text-[#252A2E] flex items-center gap-1 bg-white px-2.5 py-1 rounded border border-[#D9DDE0] cursor-pointer"
+                    >
+                      {copiedCaptionA ? <Check className="w-3.5 h-3.5 text-[#C9A96E]" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedCaptionA ? "Copiado!" : "Copiar Legenda"}</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-[#252A2E] leading-relaxed whitespace-pre-line">
+                    {currentJob.captions.versionA.captionText}
+                  </p>
+                </div>
+
+                {/* Hashtags */}
+                <div>
+                  <span className="text-[11px] font-semibold text-[#607D8B] block mb-1.5">
+                    Hashtags Recomendadas:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {currentJob.captions.versionA.hashtags.map((ht, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2.5 py-1 rounded-lg bg-[#F8F6F1] border border-[#D9DDE0] text-xs font-medium text-[#252A2E]"
+                      >
+                        {ht}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 p-5 rounded-2xl bg-slate-950 border border-slate-800 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-blue-400">
-                    Gancho: {currentJob.captions.versionB.hookConcept}
-                  </span>
-                  <button
-                    onClick={() =>
-                      copyToClipboard(currentJob.captions!.versionB.captionText, false)
-                    }
-                    className="flex items-center space-x-1 px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 transition-colors"
-                  >
-                    {copiedCaptionB ? (
-                      <>
-                        <Check className="h-3.5 w-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">Copiada!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5" />
-                        <span>Copiar Legenda B</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="whitespace-pre-line text-slate-200 bg-slate-900/90 p-4 rounded-xl border border-slate-800 font-sans leading-relaxed">
-                  {currentJob.captions.versionB.captionText}
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {currentJob.captions.versionB.hashtags.map((tag, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[11px] text-slate-400"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+              <div className="text-center py-6">
+                <p className="text-xs text-[#607D8B] mb-3">
+                  Gere uma legenda persuasiva e hashtags de alto alcance para acompanhar este vídeo.
+                </p>
+                <button
+                  onClick={() =>
+                    onGenerateCaptions(
+                      `Vídeo sobre ${videoTitle}. Roteiro focado em reter o público nos primeiros 3 segundos eliminando hesitações.`
+                    )
+                  }
+                  disabled={isGeneratingCaptions}
+                  className="px-4 py-2 rounded-xl bg-[#607D8B] hover:bg-[#506874] text-white text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#C9A96E]" />
+                  <span>Gerar Legenda com IA</span>
+                </button>
               </div>
             )}
-
-            {/* A/B Test Strategy Tip */}
-            <div className="p-3 rounded-xl bg-slate-950/70 border border-amber-500/20 text-[11px] text-amber-300 flex items-start space-x-2">
-              <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-              <span>
-                <strong>Estratégia Recomendada para o Teste A/B:</strong>{" "}
-                {currentJob.captions.abTestingTip}
-              </span>
-            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

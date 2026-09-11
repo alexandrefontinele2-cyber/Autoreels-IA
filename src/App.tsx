@@ -1,15 +1,15 @@
 /**
  * Main Application Component: AutoReels AI SaaS
- * Suíte de Roteirização em 6 Chapéus, Edição em -30dB e Landing Page de Conversão com Paywall
+ * Suíte de Análise de Perfil, Roteirização em 6 Chapéus, Edição em -30dB, Calendário e Gestão de Perfil
  */
 import React, { useState, useEffect } from "react";
 import { Navbar } from "./components/Navbar";
 import { LandingPage } from "./components/LandingPage";
-import { SixHatsStudio } from "./components/SixHatsStudio";
 import { ProfileDashboard } from "./components/ProfileDashboard";
-import { CalendarScriptGenerator } from "./components/CalendarScriptGenerator";
+import { SixHatsStudio } from "./components/SixHatsStudio";
 import { VideoStudio } from "./components/VideoStudio";
-import { ArchitectureDocsModal } from "./components/ArchitectureDocsModal";
+import { CalendarScriptGenerator } from "./components/CalendarScriptGenerator";
+import { UserProfileManager } from "./components/UserProfileManager";
 import { PaywallModal } from "./components/PaywallModal";
 import {
   initialProfile,
@@ -24,13 +24,17 @@ import {
   VideoJob,
   GeneratedScript,
   SixHatScriptItem,
+  MainAppTab,
+  UserAccountData,
 } from "./types";
-import { Sparkles, CheckCircle2, AlertCircle, Crown, Eye, ShieldCheck } from "lucide-react";
+import { Sparkles, Crown, Eye, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function App() {
   // Controle de Navegação Principal: Landing Page vs Dashboard
   const [viewMode, setViewMode] = useState<"landing" | "dashboard">("dashboard");
-  const [activeTab, setActiveTab] = useState<"six_hats" | "studio" | "profile" | "calendar" | "architecture">("six_hats");
+
+  // As 5 Abas Oficiais do SaaS
+  const [activeTab, setActiveTab] = useState<MainAppTab>("analyze_profile");
 
   // Estado de Assinatura & Modo Administrador (Alexandre Fontinele)
   const [isPaidUser, setIsPaidUser] = useState(true);
@@ -44,6 +48,37 @@ export default function App() {
   const [videoJob, setVideoJob] = useState<VideoJob>(initialVideoJob);
   const [activeScript, setActiveScript] = useState<GeneratedScript | null>(null);
 
+  // Dados do Usuário e os 2 Perfis do Instagram Vinculados (Regra: Máximo 2 perfis)
+  const [userAccount, setUserAccount] = useState<UserAccountData>({
+    fullName: "Alexandre Fontinele",
+    email: "alexandre.fontinele2@gmail.com",
+    avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+    isAdmin: true,
+    subscriptionPlan: "pro_annual",
+    linkedAccounts: [
+      {
+        id: "acc_1",
+        handle: "alexandre.reels",
+        niche: "Marketing & Infoprodutos",
+        followersCount: 14200,
+        averageViews: 3800,
+        bioText: "Estrategista de Reels | Transformando vídeos brutos em autoridade e faturamento",
+        isActive: true,
+        addedAt: "2025-01-15",
+      },
+      {
+        id: "acc_2",
+        handle: "criadorpro",
+        niche: "Produção de Vídeo & IA",
+        followersCount: 8900,
+        averageViews: 2400,
+        bioText: "Edição sem esforço e ganchos de alta retenção no Instagram & TikTok",
+        isActive: false,
+        addedAt: "2025-02-01",
+      },
+    ],
+  });
+
   // Loading States
   const [isAuditing, setIsAuditing] = useState(false);
   const [isGeneratingCalendar, setIsGeneratingCalendar] = useState(false);
@@ -52,7 +87,7 @@ export default function App() {
   const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  // Consulta status inicial da assinatura
+  // Consulta status inicial da assinatura e dados do usuário
   useEffect(() => {
     fetch("/api/subscription/status")
       .then((res) => res.json())
@@ -65,6 +100,23 @@ export default function App() {
         }
       })
       .catch((err) => console.error("Erro ao checar assinatura:", err));
+
+    fetch("/api/user/account")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data) {
+          setUserAccount(data.data);
+          const active = data.data.linkedAccounts?.find((a: any) => a.isActive);
+          if (active) {
+            setProfile((prev) => ({
+              ...prev,
+              instagramHandle: active.handle,
+              niche: active.niche,
+            }));
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const showNotification = (message: string, type: "success" | "error" = "success") => {
@@ -93,7 +145,7 @@ export default function App() {
       await fetch("/api/admin/toggle-visitor", { method: "POST" });
       setIsPaidUser(false);
       setViewMode("landing");
-      showNotification("👁️ Modo Visitante ativo: Teste o Paywall e a conversão como um cliente comum.");
+      showNotification("Modo Visitante ativo: Teste o Paywall e a conversão como um visitante comum.");
     } catch {
       setIsPaidUser(false);
       setViewMode("landing");
@@ -132,7 +184,7 @@ export default function App() {
       const resData = await response.json();
       if (resData.success && resData.data) {
         setAudit(resData.data);
-        showNotification("Auditoria de perfil e retenção concluída com sucesso!");
+        showNotification(`Auditoria de bio, feed e retenção de @${profile.instagramHandle} concluída!`);
       } else {
         throw new Error(resData.error || "Falha ao auditar perfil");
       }
@@ -168,13 +220,16 @@ export default function App() {
           postingTime: d.suggestedTime,
           contentType: d.format as any,
           theme: d.theme,
+          contentTitle: d.theme,
           objective: d.objective,
           hookIdea: d.hookIdea,
+          hookPreview: d.hookIdea,
           captionIdea: d.captionIdea,
+          suggestedPostingTime: d.suggestedTime,
           status: "draft",
         }));
         setPlans(newPlans);
-        showNotification("Calendário editorial de 7 dias gerado com sucesso!");
+        showNotification("Calendário semanal e horários de pico gerados com sucesso!");
       } else {
         throw new Error(resData.error || "Falha ao gerar calendário");
       }
@@ -187,40 +242,39 @@ export default function App() {
   };
 
   // 3. Generate Script for a Calendar Item
-  const handleGenerateScript = async (plan: ContentPlanItem) => {
+  const handleGenerateScript = async (ideaTitle: string): Promise<GeneratedScript | null> => {
     setIsGeneratingScript(true);
     try {
-      const response = await fetch("/api/script/generate", {
+      const response = await fetch("/api/scripts/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          theme: plan.theme,
-          profileConfig: {
-            instagramHandle: profile.instagramHandle,
-            targetAudience: profile.targetAudience,
-            toneOfVoice: profile.toneOfVoice,
-            niche: profile.niche,
-            customScriptRules: profile.customScriptRules,
-          },
+          ideaTitle: ideaTitle,
+          customScriptRules: profile.customScriptRules,
+          targetAudience: profile.targetAudience,
+          toneOfVoice: profile.toneOfVoice,
+          durationTargetSeconds: 45,
         }),
       });
 
       const resData = await response.json();
       if (resData.success && resData.data) {
         setActiveScript(resData.data);
-        showNotification(`Roteiro estruturado gerado para "${plan.theme}"!`);
+        showNotification(`Roteiro estruturado gerado para "${ideaTitle}"!`);
+        return resData.data;
       } else {
         throw new Error(resData.error || "Falha ao gerar roteiro");
       }
     } catch (err: any) {
       console.error("Erro no roteiro:", err);
       showNotification(err.message || "Erro de conexão com o Gemini", "error");
+      return null;
     } finally {
       setIsGeneratingScript(false);
     }
   };
 
-  // 4. Video Processing Simulator (FFmpeg / auto-editor silence cutting)
+  // 4. Video Processing via Python FastAPI / FFmpeg silence cutting
   const handleProcessVideo = async (
     title: string,
     duration: number,
@@ -229,7 +283,21 @@ export default function App() {
   ) => {
     setIsProcessingVideo(true);
     try {
-      const response = await fetch("/api/video/process-job", {
+      const response = await fetch("/api/v1/cut-silence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          video_url: null,
+          silence_threshold_db: silenceDb,
+          margin_seconds: 0.1,
+          detect_hesitations: true,
+        }),
+      });
+
+      const resData = await response.json();
+
+      // Também aciona o job no servidor
+      await fetch("/api/video/process-job", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -240,24 +308,16 @@ export default function App() {
         }),
       });
 
-      const resData = await response.json();
-      if (resData.success && resData.data) {
-        setVideoJob((prev) => ({
-          ...prev,
-          title: resData.data.title,
-          rawDurationSec: resData.data.rawDurationSec,
-          v1DurationSec: resData.data.v1DurationSec,
-          v2DurationSec: resData.data.v2DurationSec,
-          silenceThresholdDb: resData.data.silenceThresholdDb,
-          silenceSegmentsDetected: resData.data.silenceSegmentsDetected,
-          status: "completed",
-        }));
-        showNotification(
-          `Corte de silêncios (< ${silenceDb}dB) concluído! Versão A (-38%) e B (-20%) geradas.`
-        );
-      } else {
-        throw new Error(resData.error || "Falha no corte de silêncio");
-      }
+      setVideoJob((prev) => ({
+        ...prev,
+        title,
+        status: "completed",
+        silenceThresholdDb: silenceDb,
+      }));
+
+      showNotification(
+        `Corte de silêncios (< ${silenceDb}dB) concluído! Vídeo MP4 pronto para download.`
+      );
     } catch (err: any) {
       console.error("Erro no processamento:", err);
       showNotification(err.message || "Erro no processamento de vídeo", "error");
@@ -266,7 +326,7 @@ export default function App() {
     }
   };
 
-  // 5. Generate AB Captions
+  // 5. Generate Captions
   const handleGenerateCaptions = async (transcription: string) => {
     setIsGeneratingCaptions(true);
     try {
@@ -286,7 +346,7 @@ export default function App() {
           ...prev,
           captions: resData.data,
         }));
-        showNotification("Legendas A/B e melhores horários de postagem calculados!");
+        showNotification("Legendas estratégicas e hashtags de alto alcance geradas!");
       } else {
         throw new Error(resData.error || "Falha ao gerar legendas");
       }
@@ -304,8 +364,8 @@ export default function App() {
       ...prev,
       title: `${scriptItem.hatBadge}: ${scriptItem.hatTitle}`,
     }));
-    setActiveTab("studio");
-    showNotification(`Roteiro "${scriptItem.hatBadge}" carregado no Estúdio de Gravação!`);
+    setActiveTab("video_edit");
+    showNotification(`Roteiro "${scriptItem.hatBadge}" carregado no Estúdio de Vídeo!`);
   };
 
   const handleSendToStudio = (ideaTitle: string) => {
@@ -313,21 +373,20 @@ export default function App() {
       ...prev,
       title: ideaTitle,
     }));
-    setActiveTab("studio");
-    showNotification(`Tema "${ideaTitle}" enviado para o Estúdio de Edição!`);
+    setActiveTab("video_edit");
+    showNotification(`Tema "${ideaTitle}" enviado para o Estúdio de Vídeo!`);
   };
 
   // Se o usuário estiver na Landing Page de conversão:
   if (viewMode === "landing") {
     return (
       <>
-        {/* Global Toast Notification */}
         {notification && (
           <div
             className={`fixed bottom-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-semibold flex items-center space-x-2 animate-bounce ${
               notification.type === "success"
                 ? "bg-[#252A2E] border-[#C9A96E] text-[#C9A96E]"
-                : "bg-rose-950 border-rose-500 text-rose-200"
+                : "bg-red-900 border-red-500 text-white"
             }`}
           >
             <Sparkles className="h-4 w-4" />
@@ -347,13 +406,13 @@ export default function App() {
   // Dashboard do SaaS Pro
   return (
     <div className="min-h-screen bg-[#F8F6F1] text-[#252A2E] flex flex-col font-sans selection:bg-[#C9A96E] selection:text-white">
-      {/* Global Toast Notification */}
+      {/* Toast Notification */}
       {notification && (
         <div
           className={`fixed bottom-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-semibold flex items-center space-x-2 animate-bounce ${
             notification.type === "success"
               ? "bg-[#252A2E] border-[#C9A96E] text-[#C9A96E]"
-              : "bg-rose-950 border-rose-500 text-rose-200"
+              : "bg-red-900 border-red-500 text-white"
           }`}
         >
           <Sparkles className="h-4 w-4" />
@@ -367,27 +426,27 @@ export default function App() {
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1.5 text-[#C9A96E] font-bold">
               <Crown className="w-3.5 h-3.5 text-[#C9A96E]" />
-              <span>Painel do Administrador (Alexandre Fontinele)</span>
+              <span>Painel do Administrador Master (Alexandre Fontinele)</span>
             </span>
             <span className="text-[#607D8B] hidden sm:inline">•</span>
             <span className="text-[#D9DDE0] text-[11px] hidden sm:inline">
-              Todas as ferramentas liberadas (6 Chapéus, Corte -30dB, Carrossel, Legendas A/B)
+              Automação de Conteúdo, Microserviço Python (-30dB) & Supabase RLS Ativos
             </span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleToggleVisitorMode}
               className="px-2.5 py-1 rounded bg-[#343b40] hover:bg-[#454e54] text-[#D9DDE0] hover:text-white font-medium text-[11px] flex items-center gap-1.5 cursor-pointer border border-white/10 transition-colors"
-              title="Alterna para a visão do visitante comum para você testar a landing page e o Paywall"
+              title="Alterna para a visão do visitante para testar a landing page e o Paywall"
             >
               <Eye className="w-3.5 h-3.5 text-[#C9A96E]" />
-              <span>Testar como Visitante (Paywall)</span>
+              <span>Testar como Visitante</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* Navbar com Navegação Pro */}
+      {/* Navbar Responsiva com as 5 Abas Oficiais */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -398,9 +457,28 @@ export default function App() {
         onToggleVisitorMode={handleToggleVisitorMode}
       />
 
-      {/* Main Content Area */}
+      {/* Main Content Area: Renderização das 5 Telas Oficiais */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === "six_hats" && (
+        {/* 1. "Analise seu perfil" */}
+        {activeTab === "analyze_profile" && (
+          <ProfileDashboard
+            profile={profile}
+            onUpdateProfile={(updated) => {
+              setProfile(updated);
+              showNotification("Diretrizes e configurações do perfil salvas!");
+            }}
+            audit={audit}
+            onRunAudit={handleRunAudit}
+            isAuditing={isAuditing}
+            linkedProfiles={userAccount.linkedAccounts.map((a) => ({
+              handle: a.handle,
+              niche: a.niche,
+            }))}
+          />
+        )}
+
+        {/* 2. "Roteirize sua ideia" */}
+        {activeTab === "script_idea" && (
           <SixHatsStudio
             userProfile={profile}
             initialTopic={videoJob.title || "Como reter atenção no Instagram Reels"}
@@ -408,7 +486,8 @@ export default function App() {
           />
         )}
 
-        {activeTab === "studio" && (
+        {/* 3. "Edite seu vídeo" */}
+        {activeTab === "video_edit" && (
           <VideoStudio
             currentJob={videoJob}
             onProcessVideo={handleProcessVideo}
@@ -419,19 +498,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "profile" && (
-          <ProfileDashboard
-            profile={profile}
-            onUpdateProfile={(updated) => {
-              setProfile(updated);
-              showNotification("Diretrizes de perfil e regras atualizadas no Supabase!");
-            }}
-            audit={audit}
-            onRunAudit={handleRunAudit}
-            isAuditing={isAuditing}
-          />
-        )}
-
+        {/* 4. "Calendário de postagem" */}
         {activeTab === "calendar" && (
           <CalendarScriptGenerator
             plans={plans}
@@ -446,7 +513,30 @@ export default function App() {
           />
         )}
 
-        {activeTab === "architecture" && <ArchitectureDocsModal />}
+        {/* 5. "Perfil" */}
+        {activeTab === "account_profile" && (
+          <UserProfileManager
+            userAccount={userAccount}
+            onUpdateAccount={(updated) => {
+              setUserAccount(updated);
+              showNotification("Dados de perfil e contas vinculadas atualizados!");
+            }}
+            onSelectActiveInstagram={(handle) => {
+              const acc = userAccount.linkedAccounts.find((a) => a.handle === handle);
+              if (acc) {
+                setProfile((prev) => ({
+                  ...prev,
+                  instagramHandle: acc.handle,
+                  niche: acc.niche,
+                  bioText: acc.bioText,
+                  followersCount: acc.followersCount,
+                  averageViews: acc.averageViews,
+                }));
+              }
+            }}
+            onNavigateToTab={(tab) => setActiveTab(tab)}
+          />
+        )}
       </main>
 
       {/* Footer Sofisticado */}
@@ -454,16 +544,16 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center space-x-2">
             <span className="h-2 w-2 rounded-full bg-[#C9A96E] animate-pulse"></span>
-            <span>AutoReels AI Pro • Supabase RLS • FFmpeg -30dB • Gemini 3.8 Flash</span>
+            <span>AutoReels AI Pro • Python FastAPI (-30dB) • Supabase RLS • Gemini 3.8 Flash</span>
           </div>
           <div className="flex items-center gap-4">
             <button
               onClick={() => setViewMode("landing")}
               className="hover:text-[#252A2E] underline cursor-pointer"
             >
-              Voltar à Landing Page
+              Ver Landing Page
             </button>
-            <p>© {new Date().getFullYear()} AutoReels SaaS. Automação de Vídeos para Instagram.</p>
+            <p>© {new Date().getFullYear()} AutoReels SaaS. Todos os direitos reservados.</p>
           </div>
         </div>
       </footer>

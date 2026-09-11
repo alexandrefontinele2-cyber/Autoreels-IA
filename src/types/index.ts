@@ -11,6 +11,34 @@ export type HatType =
   | "hat_green_creative"    // Roteiro 5: Ideia criativa, disruptiva e fora da caixa
   | "hat_blue_process";     // Roteiro 6: Organização, prioridade, ordem e método
 
+export type MainAppTab =
+  | "analyze_profile"   // 1. Analise seu perfil (Instagram @, Bio, Feed, Retenção - máx 2 perfis)
+  | "script_idea"       // 2. Roteirize sua ideia (6 Chapéus, Fatos, Emoção, Erros, Benefício, Criativo, Organização)
+  | "video_edit"        // 3. Edite seu vídeo (Upload .mp4/.mov, corte em -30dB, player e download)
+  | "calendar"          // 4. Calendário de postagem (Organização semanal e melhores horários)
+  | "account_profile";  // 5. Perfil (Gestão de foto, nome, email, senha e 2 perfis vinculados)
+
+export interface LinkedInstagramAccount {
+  id: string;
+  handle: string;
+  niche: string;
+  followersCount: number;
+  averageViews: number;
+  bioText: string;
+  isActive: boolean;
+  addedAt: string;
+}
+
+export interface UserAccountData {
+  id: string;
+  fullName: string;
+  email: string;
+  avatarUrl: string;
+  linkedAccounts: LinkedInstagramAccount[]; // limite estrito de no máximo 2 perfis
+  planName: string;
+  isAdmin: boolean;
+}
+
 export interface UserSubscription {
   status: "trial" | "active" | "canceled" | "unpaid";
   planName: "Pro Mensal" | "Creator Anual";

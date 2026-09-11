@@ -13,8 +13,9 @@ import {
   PlayCircle,
   Plus,
   ArrowRight,
-  ShieldCheck,
   Flame,
+  Layers,
+  ChevronRight,
 } from "lucide-react";
 
 interface CalendarScriptGeneratorProps {
@@ -43,6 +44,12 @@ export const CalendarScriptGenerator: React.FC<CalendarScriptGeneratorProps> = (
   const [selectedPlan, setSelectedPlan] = useState<ContentPlanItem | null>(plans[0] || null);
   const [customIdeaInput, setCustomIdeaInput] = useState("");
   const [copiedScript, setCopiedScript] = useState(false);
+  const [filterType, setFilterType] = useState<"all" | "reels" | "carousel">("all");
+
+  const filteredPlans = plans.filter((p) => {
+    if (filterType === "all") return true;
+    return p.contentType === filterType;
+  });
 
   const handleScriptRequest = async (title: string) => {
     const result = await onGenerateScript(title);
@@ -54,9 +61,9 @@ export const CalendarScriptGenerator: React.FC<CalendarScriptGeneratorProps> = (
   const handleCopyScript = () => {
     if (!activeScript) return;
     const text = `TITULO: ${activeScript.title}
-DURAÇÃO: ${activeScript.targetDuration}
+DURAÇÃO ESTIMADA: ${activeScript.totalDurationSeconds}s
 
-[HOOK - 0s a 3s]
+[GANCHO - 00:00 a 00:03]
 Ação Visual: ${activeScript.hook.visualAction}
 Texto na Tela: ${activeScript.hook.onScreenText}
 Fala: "${activeScript.hook.spokenWords}"
@@ -72,13 +79,12 @@ ${activeScript.body
   )
   .join("\n\n")}
 
-[CTA FINAL]
+[CHAMADA PARA AÇÃO (CTA)]
 Ação Visual: ${activeScript.cta.visualAction}
 Fala: "${activeScript.cta.spokenWords}"
 Texto: ${activeScript.cta.onScreenText}
 
-DICAS DE GRAVAÇÃO:
-${activeScript.filmingTips.map((t) => `- ${t}`).join("\n")}`;
+Hashtags: ${activeScript.hashtags?.join(" ") || ""}`;
 
     navigator.clipboard.writeText(text);
     setCopiedScript(true);
@@ -87,19 +93,18 @@ ${activeScript.filmingTips.map((t) => `- ${t}`).join("\n")}`;
 
   return (
     <div className="space-y-8 animate-fadeIn">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#D9DDE0] pb-6">
         <div>
-          <div className="flex items-center space-x-2 text-rose-400 text-xs font-semibold uppercase tracking-wider mb-1">
-            <CalendarIcon className="h-4 w-4" />
-            <span>Planejamento Editorial & Roteirizador Estruturado</span>
+          <div className="flex items-center space-x-2 text-[#607D8B] text-xs font-semibold uppercase tracking-wider mb-1">
+            <CalendarIcon className="h-4 w-4 text-[#C9A96E]" />
+            <span>Planejamento Semanal & Melhores Horários</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-            Calendário & Gerador de Roteiros
+          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#252A2E]">
+            Calendário de postagem
           </h1>
-          <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-            Planejamento semanal inteligente com horários de pico e roteiros gerados sob as regras
-            estritas de @{profile.instagramHandle}.
+          <p className="text-sm text-[#607D8B] mt-1 max-w-2xl">
+            Organização semanal de conteúdos e horários de pico de engajamento baseados no nicho de @{profile.instagramHandle}.
           </p>
         </div>
 
@@ -108,279 +113,275 @@ ${activeScript.filmingTips.map((t) => `- ${t}`).join("\n")}`;
             id="generate-calendar-btn"
             onClick={onGenerateCalendar}
             disabled={isGeneratingCalendar}
-            className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs font-semibold shadow-md shadow-rose-600/20 transition-all disabled:opacity-50"
+            className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-[#252A2E] text-white hover:bg-[#343b40] text-xs font-semibold transition-all shadow-md cursor-pointer disabled:opacity-50"
           >
-            <Sparkles className="h-4 w-4" />
-            <span>
-              {isGeneratingCalendar ? "Gerando Novo Plano com IA..." : "Gerar Calendário da Semana"}
-            </span>
+            {isGeneratingCalendar ? (
+              <>
+                <div className="h-4 w-4 border-2 border-[#C9A96E] border-t-transparent rounded-full animate-spin" />
+                <span>Otimizando Horários...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 text-[#C9A96E]" />
+                <span>Gerar Novo Calendário Semanal</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Quick Custom Idea Bar */}
-      <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row items-center gap-3">
-        <div className="flex items-center space-x-2 text-xs font-semibold text-rose-400 shrink-0">
-          <Flame className="h-4 w-4" />
-          <span>Roteirizar Ideia Avulsa:</span>
+      {/* Melhores Horários de Postagem Resumidos */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-[#D9DDE0] shadow-xs">
+          <span className="text-[11px] font-bold text-[#607D8B] uppercase tracking-wider block mb-1">
+            Pico de Segunda a Quarta
+          </span>
+          <div className="text-lg font-serif font-bold text-[#252A2E]">12h15 e 18h45</div>
+          <p className="text-[11px] text-[#607D8B] mt-0.5">Reels educativos e ganchos rápidos</p>
         </div>
-        <input
-          type="text"
-          value={customIdeaInput}
-          onChange={(e) => setCustomIdeaInput(e.target.value)}
-          placeholder="Ex: Como dobrar a retenção de Reels cortando hesitações de áudio..."
-          className="flex-1 w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
-        />
-        <button
-          id="custom-script-btn"
-          disabled={!customIdeaInput.trim() || isGeneratingScript}
-          onClick={() => handleScriptRequest(customIdeaInput)}
-          className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium transition-all disabled:opacity-50 shrink-0 flex items-center justify-center space-x-1.5"
-        >
-          <FileText className="h-3.5 w-3.5 text-rose-400" />
-          <span>{isGeneratingScript ? "Roteirizando..." : "Gerar Roteiro pelas Regras"}</span>
-        </button>
+
+        <div className="bg-white p-4 rounded-xl border border-[#D9DDE0] shadow-xs">
+          <span className="text-[11px] font-bold text-[#C9A96E] uppercase tracking-wider block mb-1">
+            Pico de Quinta a Sexta
+          </span>
+          <div className="text-lg font-serif font-bold text-[#252A2E]">17h30 e 20h15</div>
+          <p className="text-[11px] text-[#607D8B] mt-0.5">Carrosséis aprofundados e listas</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-[#D9DDE0] shadow-xs">
+          <span className="text-[11px] font-bold text-[#607D8B] uppercase tracking-wider block mb-1">
+            Pico de Fim de Semana
+          </span>
+          <div className="text-lg font-serif font-bold text-[#252A2E]">10h00 e 19h00</div>
+          <p className="text-[11px] text-[#607D8B] mt-0.5">Histórias e conexão emocional</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-[#D9DDE0] shadow-xs">
+          <span className="text-[11px] font-bold text-[#607D8B] uppercase tracking-wider block mb-1">
+            Frequência Alvo
+          </span>
+          <div className="text-lg font-serif font-bold text-[#C9A96E]">5 a 7 posts/sem</div>
+          <p className="text-[11px] text-[#607D8B] mt-0.5">Constância com corte em -30dB</p>
+        </div>
       </div>
 
-      {/* Weekly Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {plans.map((plan) => {
-          const isSelected = selectedPlan?.id === plan.id;
-          return (
-            <div
-              key={plan.id}
-              onClick={() => setSelectedPlan(plan)}
-              className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-4 ${
-                isSelected
-                  ? "bg-slate-900/90 border-rose-500 shadow-lg shadow-rose-950/20"
-                  : "bg-slate-900/40 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60"
-              }`}
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-rose-400">
-                    {plan.dayOfWeek}
-                  </span>
-                  <span className="flex items-center space-x-1 text-[11px] font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800">
-                    <Clock className="h-3 w-3 text-amber-400" />
-                    <span>{plan.suggestedPostingTime}</span>
-                  </span>
-                </div>
+      {/* Grid Principal: Lista Semanal vs Detalhe do Roteiro */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Coluna Esquerda: Lista Semanal de Postagens (7 cols) */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="bg-white rounded-2xl border border-[#D9DDE0] p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-[#D9DDE0] pb-3">
+              <h2 className="font-serif font-bold text-base text-[#252A2E] flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-[#607D8B]" />
+                <span>Programação Semanal ({filteredPlans.length} Publicações)</span>
+              </h2>
 
-                <div className="space-y-1.5">
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${
-                        plan.contentType === "reels"
-                          ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                          : plan.contentType === "carousel"
-                          ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                          : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                      }`}
-                    >
-                      {plan.contentType}
-                    </span>
-                    <span className="text-[10px] text-slate-500">{plan.estimatedEffort}</span>
-                  </div>
-                  <h3 className="text-sm font-semibold text-white leading-snug line-clamp-2">
-                    {plan.contentTitle}
-                  </h3>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs text-slate-300">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block mb-1">
-                    Gancho Inicial (0-3s)
-                  </span>
-                  <p className="italic text-slate-300">"{plan.hookPreview}"</p>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 capitalize">
-                  Status: <strong className="text-slate-200">{plan.status}</strong>
-                </span>
-
+              {/* Filtro de Formato */}
+              <div className="flex items-center bg-[#F8F6F1] p-1 rounded-lg border border-[#D9DDE0] text-xs">
                 <button
-                  id={`btn-script-${plan.id}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPlan(plan);
-                    handleScriptRequest(plan.contentTitle);
-                  }}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-semibold transition-all"
+                  onClick={() => setFilterType("all")}
+                  className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                    filterType === "all" ? "bg-[#252A2E] text-white font-semibold" : "text-[#607D8B]"
+                  }`}
                 >
-                  <FileText className="h-3 w-3" />
-                  <span>Roteirizar</span>
+                  Todos
+                </button>
+                <button
+                  onClick={() => setFilterType("reels")}
+                  className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                    filterType === "reels" ? "bg-[#252A2E] text-white font-semibold" : "text-[#607D8B]"
+                  }`}
+                >
+                  Reels
+                </button>
+                <button
+                  onClick={() => setFilterType("carousel")}
+                  className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                    filterType === "carousel" ? "bg-[#252A2E] text-white font-semibold" : "text-[#607D8B]"
+                  }`}
+                >
+                  Carrossel
                 </button>
               </div>
             </div>
-          );
-        })}
-      </div>
 
-      {/* Structured Script View Modal / Drawer */}
-      {activeScript && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2">
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-500/10 border border-rose-500/30 text-rose-400">
-                    Roteiro Estruturado
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">
-                    Duração estimada: {activeScript.targetDuration}
-                  </span>
-                </div>
-                <h2 className="text-lg font-bold text-white leading-snug">
-                  {activeScript.title}
-                </h2>
-              </div>
-
-              <button
-                onClick={() => setActiveScript(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Modal Scrollable Body */}
-            <div className="p-6 overflow-y-auto space-y-6 text-sm">
-              {/* Rules Followed Banner */}
-              <div className="p-3.5 rounded-xl bg-slate-950 border border-emerald-500/30 flex items-start space-x-3">
-                <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-emerald-400 block">
-                    Regras personalizadas rigorosamente aplicadas:
-                  </span>
-                  <ul className="text-xs text-slate-300 space-y-0.5 list-disc list-inside">
-                    {activeScript.rulesFollowedSummary.map((rule, idx) => (
-                      <li key={idx}>{rule}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              {/* 1. HOOK SECTION */}
-              <div className="p-4 rounded-2xl bg-rose-950/20 border border-rose-500/30 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-rose-400 uppercase tracking-wider">
-                    1. GANCHO (HOOK) - 0s a 3s
-                  </span>
-                  <span className="font-mono text-slate-400">{activeScript.hook.timestamp}</span>
-                </div>
-                <div className="space-y-1.5 text-xs">
-                  <p className="text-slate-300">
-                    <strong>Ação Visual:</strong> {activeScript.hook.visualAction}
-                  </p>
-                  <p className="text-slate-100 bg-slate-950 p-2.5 rounded-xl border border-slate-800 font-medium leading-relaxed">
-                    <strong>Fala:</strong> "{activeScript.hook.spokenWords}"
-                  </p>
-                  <p className="text-amber-300 text-[11px]">
-                    <strong>Texto na Tela (Overlays):</strong> {activeScript.hook.onScreenText}
-                  </p>
-                </div>
-              </div>
-
-              {/* 2. BODY STEPS */}
-              <div className="space-y-3">
-                <span className="font-bold text-slate-300 text-xs uppercase tracking-wider block">
-                  2. DESENVOLVIMENTO DO VÍDEO
-                </span>
-                {activeScript.body.map((step) => (
+            {/* Itens do Calendário */}
+            <div className="space-y-3">
+              {filteredPlans.map((plan) => {
+                const isSelected = selectedPlan?.id === plan.id;
+                return (
                   <div
-                    key={step.stepNumber}
-                    className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs"
+                    key={plan.id}
+                    onClick={() => setSelectedPlan(plan)}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-[#F8F6F1] border-[#C9A96E] ring-1 ring-[#C9A96E]/40"
+                        : "bg-white border-[#D9DDE0] hover:border-[#607D8B]/40"
+                    }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-200">
-                        Passo {step.stepNumber}
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-[#252A2E] bg-[#D9DDE0]/50 px-2 py-0.5 rounded">
+                          {plan.dayOfWeek}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+                            plan.contentType === "reels"
+                              ? "bg-[#252A2E] text-white"
+                              : "bg-[#607D8B]/20 text-[#607D8B]"
+                          }`}
+                        >
+                          {plan.contentType === "reels" ? "Reels (Vídeo)" : "Carrossel"}
+                        </span>
+                      </div>
+                      <span className="text-xs font-semibold text-[#C9A96E] flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        {plan.suggestedPostingTime || "18:30"}
                       </span>
-                      <span className="font-mono text-slate-500">{step.timestamp}</span>
                     </div>
-                    <p className="text-slate-300">
-                      <strong>Câmera / Ação:</strong> {step.visualAction}
+
+                    <h3 className="font-serif font-bold text-sm text-[#252A2E] mb-1">
+                      {plan.contentTitle}
+                    </h3>
+
+                    <p className="text-xs text-[#607D8B] italic mb-3">
+                      Gancho: "{plan.hookPreview}"
                     </p>
-                    <p className="text-slate-100 bg-slate-900 p-2 rounded-lg border border-slate-800 font-medium">
-                      <strong>Fala:</strong> "{step.spokenWords}"
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
-                      <p className="text-amber-400">
-                        <strong>Texto tela:</strong> {step.onScreenText}
-                      </p>
-                      <p className="text-cyan-400">
-                        <strong>B-Roll / Imagem:</strong> {step.bRollSuggestion}
-                      </p>
+
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-[#D9DDE0]/60">
+                      <span className="text-[11px] text-[#607D8B]">Objetivo: {plan.objective}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPlan(plan);
+                          handleScriptRequest(plan.contentTitle);
+                        }}
+                        className="text-xs font-semibold text-[#607D8B] hover:text-[#252A2E] flex items-center gap-1 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-[#C9A96E]" />
+                        <span>Gerar Roteiro</span>
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
-
-              {/* 3. CTA */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-rose-400 uppercase tracking-wider">
-                    3. CALL TO ACTION (CTA)
-                  </span>
-                  <span className="font-mono text-slate-500">{activeScript.cta.timestamp}</span>
-                </div>
-                <p className="text-slate-100 bg-slate-900 p-2 rounded-lg border border-slate-800 font-medium">
-                  <strong>Fala:</strong> "{activeScript.cta.spokenWords}"
-                </p>
-                <p className="text-slate-300">
-                  <strong>Ação Final:</strong> {activeScript.cta.visualAction}
-                </p>
-              </div>
-
-              {/* Filming Tips */}
-              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-1.5 text-xs text-slate-400">
-                <span className="font-semibold text-slate-300 block">
-                  Dicas para gravação de alta retenção:
-                </span>
-                <ul className="space-y-1 list-disc list-inside">
-                  {activeScript.filmingTips.map((tip, i) => (
-                    <li key={i}>{tip}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-4 sm:p-6 border-t border-slate-800 bg-slate-950/80 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <button
-                onClick={handleCopyScript}
-                className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-all"
-              >
-                {copiedScript ? (
-                  <>
-                    <Check className="h-4 w-4 text-emerald-400" />
-                    <span className="text-emerald-400">Copiado com Sucesso!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4" />
-                    <span>Copiar Roteiro Completo</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={() => {
-                  onSendToStudio(activeScript.title);
-                  setActiveScript(null);
-                }}
-                className="w-full sm:w-auto flex items-center justify-center space-x-2 px-5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs font-semibold shadow-md shadow-rose-600/20 transition-all"
-              >
-                <Video className="h-4 w-4" />
-                <span>Gravar ou Enviar Vídeo no Estúdio</span>
-                <ArrowRight className="h-3.5 w-3.5 ml-1" />
-              </button>
+                );
+              })}
             </div>
           </div>
         </div>
-      )}
+
+        {/* Coluna Direita: Roteiro Estruturado do Post Selecionado (5 cols) */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="bg-white rounded-2xl border border-[#D9DDE0] p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-[#D9DDE0] pb-3">
+              <div>
+                <span className="text-[10px] text-[#607D8B] font-bold uppercase block">
+                  Roteiro Detalhado
+                </span>
+                <h3 className="font-serif font-bold text-sm text-[#252A2E] truncate max-w-xs">
+                  {selectedPlan?.contentTitle || "Selecione uma postagem"}
+                </h3>
+              </div>
+
+              {activeScript && (
+                <button
+                  onClick={handleCopyScript}
+                  className="text-xs text-[#607D8B] hover:text-[#252A2E] flex items-center gap-1 bg-[#F8F6F1] px-2.5 py-1 rounded border border-[#D9DDE0] cursor-pointer"
+                >
+                  {copiedScript ? <Check className="w-3.5 h-3.5 text-[#C9A96E]" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedScript ? "Copiado!" : "Copiar"}</span>
+                </button>
+              )}
+            </div>
+
+            {selectedPlan ? (
+              <div className="space-y-4">
+                {activeScript ? (
+                  <div className="space-y-4 text-xs">
+                    {/* Gancho */}
+                    <div className="p-3.5 rounded-xl bg-[#252A2E] text-white border border-[#C9A96E]/40 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase text-[#C9A96E]">
+                          Gancho de Retenção (0 - 3s)
+                        </span>
+                        <span className="text-[10px] text-[#D9DDE0]">Corte seco</span>
+                      </div>
+                      <p className="font-serif italic text-sm text-[#F8F6F1]">
+                        "{activeScript.hook.spokenWords}"
+                      </p>
+                      <span className="text-[10px] text-[#D9DDE0] block">
+                        Ação: {activeScript.hook.visualAction}
+                      </span>
+                    </div>
+
+                    {/* Passos do Conteúdo */}
+                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                      {activeScript.body.map((step) => (
+                        <div key={step.stepNumber} className="p-3 rounded-xl bg-[#F8F6F1] border border-[#D9DDE0]">
+                          <span className="font-bold text-[11px] text-[#252A2E] block mb-0.5">
+                            Ponto {step.stepNumber} ({step.timestamp})
+                          </span>
+                          <p className="text-xs text-[#252A2E] leading-relaxed mb-1">
+                            "{step.spokenWords}"
+                          </p>
+                          <span className="text-[10px] text-[#607D8B] block">
+                            B-Roll sugerido: {step.bRollSuggestion}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* CTA */}
+                    <div className="p-3 rounded-xl bg-[#607D8B]/10 border border-[#607D8B]/30">
+                      <span className="font-bold text-[11px] text-[#607D8B] block mb-0.5">
+                        Chamada para Ação (Final)
+                      </span>
+                      <p className="text-xs text-[#252A2E]">
+                        "{activeScript.cta.spokenWords}"
+                      </p>
+                    </div>
+
+                    {/* Botão para Levar ao Estúdio de Vídeo */}
+                    <button
+                      onClick={() => onSendToStudio(selectedPlan.contentTitle)}
+                      className="w-full py-3 rounded-xl bg-[#C9A96E] hover:bg-[#b8955b] text-white font-semibold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Video className="w-4 h-4" />
+                      <span>Gravar e Cortar este Vídeo no Estúdio (-30dB)</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center py-10 space-y-3">
+                    <p className="text-xs text-[#607D8B]">
+                      Clique para gerar a estrutura completa deste vídeo com gancho, desenvolvimento e CTA cirúrgico.
+                    </p>
+                    <button
+                      onClick={() => handleScriptRequest(selectedPlan.contentTitle)}
+                      disabled={isGeneratingScript}
+                      className="px-5 py-2.5 rounded-xl bg-[#252A2E] hover:bg-[#343b40] text-white text-xs font-semibold shadow-md transition-all inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {isGeneratingScript ? (
+                        <>
+                          <div className="h-3.5 w-3.5 border-2 border-[#C9A96E] border-t-transparent rounded-full animate-spin" />
+                          <span>Gerando Roteiro com IA...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5 text-[#C9A96E]" />
+                          <span>Gerar Roteiro Estruturado</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-xs text-[#607D8B]">
+                Selecione um dia da semana para visualizar e gerar o roteiro.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

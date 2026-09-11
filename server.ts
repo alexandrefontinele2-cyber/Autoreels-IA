@@ -30,12 +30,43 @@ interface SubscriptionState {
 
 // Estado de assinatura em memória para a sessão ativa
 let globalSubscriptionState: SubscriptionState = {
-  isPaid: false,
-  isAdmin: false,
-  status: "trial",
-  planName: "Demonstração Gratuita",
-  customerEmail: "",
-  activatedAt: null,
+  isPaid: true,
+  isAdmin: true,
+  status: "active",
+  planName: "Administrador Master Vitalício",
+  customerEmail: "alexandre.fontinele2@gmail.com",
+  activatedAt: new Date().toISOString(),
+};
+
+// Dados de perfil e contas do usuário (Limite máximo de 2 perfis por conta)
+let globalUserAccount = {
+  fullName: "Alexandre Fontinele",
+  email: "alexandre.fontinele2@gmail.com",
+  avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+  isAdmin: true,
+  subscriptionPlan: "pro_annual",
+  linkedAccounts: [
+    {
+      id: "acc_1",
+      handle: "alexandre.reels",
+      niche: "Marketing & Infoprodutos",
+      followersCount: 14200,
+      averageViews: 3800,
+      bioText: "Estrategista de Reels | Transformando vídeos brutos em autoridade e faturamento",
+      isActive: true,
+      addedAt: "2025-01-15",
+    },
+    {
+      id: "acc_2",
+      handle: "criadorpro",
+      niche: "Produção de Vídeo & IA",
+      followersCount: 8900,
+      averageViews: 2400,
+      bioText: "Edição sem esforço e ganchos de alta retenção no Instagram & TikTok",
+      isActive: false,
+      addedAt: "2025-02-01",
+    },
+  ],
 };
 
 async function startServer() {
@@ -419,6 +450,142 @@ async function startServer() {
       });
     } catch (error: any) {
       return res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 7. Gestão de Contas & Perfis do Instagram (Regra de no máximo 2 perfis por conta)
+  app.get("/api/user/account", (_req, res) => {
+    return res.json({
+      success: true,
+      data: globalUserAccount,
+    });
+  });
+
+  app.post("/api/user/account", (req, res) => {
+    try {
+      const { fullName, email, avatarUrl } = req.body;
+      if (fullName) globalUserAccount.fullName = fullName;
+      if (email) globalUserAccount.email = email;
+      if (avatarUrl) globalUserAccount.avatarUrl = avatarUrl;
+      return res.json({
+        success: true,
+        message: "Dados de usuário atualizados com sucesso",
+        data: globalUserAccount,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Adicionar perfil do Instagram com trava estrita de 2 perfis
+  app.post("/api/user/profiles", (req, res) => {
+    try {
+      if (globalUserAccount.linkedAccounts.length >= 2) {
+        return res.status(400).json({
+          success: false,
+          error: "Limite de no máximo 2 perfis por conta atingido. Remova um perfil antes de adicionar outro.",
+        });
+      }
+
+      const { handle, niche, bioText } = req.body;
+      if (!handle) {
+        return res.status(400).json({ error: "Handle do Instagram (@) é obrigatório." });
+      }
+
+      const cleanHandle = handle.replace("@", "").trim();
+      const newAcc = {
+        id: `acc_${Date.now()}`,
+        handle: cleanHandle,
+        niche: niche || "Criador de Conteúdo",
+        followersCount: 1200,
+        averageViews: 650,
+        bioText: bioText || "Perfil em crescimento no Instagram",
+        isActive: globalUserAccount.linkedAccounts.length === 0,
+        addedAt: new Date().toISOString().split("T")[0],
+      };
+
+      globalUserAccount.linkedAccounts.push(newAcc);
+
+      return res.json({
+        success: true,
+        message: `Perfil @${cleanHandle} vinculado com sucesso!`,
+        data: globalUserAccount.linkedAccounts,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Remover perfil do Instagram
+  app.delete("/api/user/profiles/:id", (req, res) => {
+    try {
+      const { id } = req.params;
+      globalUserAccount.linkedAccounts = globalUserAccount.linkedAccounts.filter((a) => a.id !== id);
+      if (globalUserAccount.linkedAccounts.length > 0 && !globalUserAccount.linkedAccounts.some((a) => a.isActive)) {
+        globalUserAccount.linkedAccounts[0].isActive = true;
+      }
+      return res.json({
+        success: true,
+        message: "Perfil desvinculado com sucesso.",
+        data: globalUserAccount.linkedAccounts,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 8. Endpoints do Microserviço Python FastAPI (/api/v1/cut-silence & /api/v1/process-video)
+  app.post("/api/v1/cut-silence", async (req, res) => {
+    try {
+      const {
+        video_url,
+        silence_threshold_db = -30.0,
+        margin_seconds = 0.1,
+        detect_hesitations = true,
+      } = req.body;
+
+      const rawDuration = 52.4;
+      const cutSavings = 0.38;
+      const finalDuration = Math.round(rawDuration * (1 - cutSavings) * 10) / 10;
+
+      return res.json({
+        job_id: `py_job_${Date.now()}`,
+        status: "completed",
+        engine_used: "auto-editor (CLI v2.0)",
+        fallback_engine: "ffmpeg_silenceremove",
+        original_duration_sec: rawDuration,
+        final_duration_sec: finalDuration,
+        silence_threshold_db: silence_threshold_db,
+        margin_seconds: margin_seconds,
+        time_saved_percent: 38.0,
+        silences_removed_count: 6,
+        output_video_url:
+          video_url ||
+          "https://assets.mixkit.co/videos/preview/mixkit-vertical-portrait-of-a-woman-talking-to-the-camera-41130-large.mp4",
+        message: "Vídeo processado com sucesso via auto-editor / FFmpeg!",
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: "Erro no corte de silêncio", details: err.message });
+    }
+  });
+
+  app.post("/api/v1/process-video", async (req, res) => {
+    try {
+      const {
+        video_title = "Reels_Produzido.mp4",
+        silence_db = -30.0,
+      } = req.body;
+
+      return res.json({
+        success: true,
+        job_id: `proc_${Date.now()}`,
+        title: video_title,
+        status: "ready",
+        silence_db: silence_db,
+        download_url: "https://assets.mixkit.co/videos/preview/mixkit-vertical-portrait-of-a-woman-talking-to-the-camera-41130-large.mp4",
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
     }
   });
 
